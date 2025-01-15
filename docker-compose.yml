@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: quiz
+      POSTGRES_USER: ${QUIZ_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${QUIZ_DB_PASSWORD:-postgres}
+    ports:
+      - "5455:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      -   net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d quiz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:latest
+    ports:
+      - "${QUIZ_REDIS_PORT:-6380}:6379"
+    networks:
+      - net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  
+  backend:
+    build:
+      context: ./quiz-backend
+      dockerfile: Dockerfile
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/quiz
+      SPRING_DATASOURCE_USERNAME: ${QUIZ_DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${QUIZ_DB_PASSWORD:-postgres}
+      SPRING_MAIL_HOST: ${QUIZ_MAIL_HOST:-smtp.gmail.com}
+      SPRING_MAIL_PORT: ${QUIZ_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${QUIZ_MAIL_USERNAME:-mail_user}
+      SPRING_MAIL_PASSWORD: ${QUIZ_MAIL_PASSWORD:-mail_pass}
+      SPRING_JWT_TOKEN_SECRETKEY: ${QUIZ_JWT_TOKEN_SECRETKEY:-MIICWwIBAAKBgQCcSL3BugeM/B4hEOyKkVHMzrkzyxWjO1K/DDRne7OIFMRM06hYK0CAZ581L+XCg1h4bRslF2ou3AIrqVKQVjmw57dU+zZY3YHnNry7WOQ3CYa9UJA0ZPELLMpd9+KVBF2VXuVBAQAfmmg1RhathMcvq1StX3GP9P3QN1BjUa09L9QIDAQABAoGAahUCIO6qU2uK8/zt4rzzXmbv1ZVDUbJh32ZkZ93SpksaV9/PxFFPj3TQ36Rse9T2B4BfzZSQMdCK9KIRdgHhU/zKhPqBQEGlRbSMmwxJfzmLg4F/Iv1pBp3FUslCXlSSWvxzUsrCBzg3mWcG+dVy2mlvmcSGQOnKSeK05qyrA/0CQQDtupr5XbIXBEsWOOxACJYIRuESh+NhJnnAoR8t9rmMbicKVt7n3/Y/zYdOXRlBrZdgBNHzgPxASqLgQm/DAcfjAkEAqEuu3ao0zZsy4pv4P/s4NHTrN1MS19YfmbpBh8lvS/zycgGtXTcpCokStHscfjAQHSeQQwR6DDB7ENkwFCp0RwJAKA6wfGJYVt6HVHhE/skzlrNyy2+QVddo3peHrHQNcedBttFKgCHR2ZBlQ0QWtGVuw2QsiG5sktzAsy8eq+pJ5wJAIv758eY+7LJlNnIwgT2ARog5kVuZA4DnOVRd5BqjJi4HTGXE4ylhQ2uVlCo1lpfwAeAEQ6tepcI/FRXUxZy+aQJAOsnT9NiPjHyt7i7KsJWGCnOFvAVemPYqV3lm93/j2OqOXypbbb2OrxYdogQkKQHzH4ahtvJmx66L4Jm4v/11SQ==}
+      SPRING_REDIS_HOST: ${QUIZ_REDIS_HOST:-redis}
+      SPRING_REDIS_PORT: ${QUIZ_REDIS_PORT:-6380}
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      - "${QUIZ_BACKEND_PORT:-8085}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./quiz-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${QUIZ_FRONTEND_PORT:-8090}:80"
+    depends_on:
+      - backend
+    networks:
+      - net
+
+volumes:
+  db_data:
+
+networks:
+  net:

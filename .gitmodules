@@ -1,0 +1,10 @@
+[submodule "quiz-backend"]
+	path = quiz-backend
+	url = https://github.com/haetten/quiz-backend.git
+[submodule "quiz-frontend"]
+	path = quiz-frontend
+	url = https://github.com/haetten/quiz-frontend.git
+[submodule "https://github.com/haetten/quiz-backend.git"]
+	url = quiz-backend
+[submodule "https://github.com/haetten/quiz-frontend.git"]
+	url = quiz-frontend
